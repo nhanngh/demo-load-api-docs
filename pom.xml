@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.1.4</version>
+    <version>3.1.0</version>
     <relativePath/> <!-- lookup parent from repository -->
   </parent>
   <groupId>com.example</groupId>
@@ -15,11 +15,22 @@
   <description>demo-load-api-docs</description>
   <properties>
     <java.version>17</java.version>
+    <spring-cloud.version>2022.0.3</spring-cloud.version>
+    <project.api-docs.groupId>com.demo.bkit</project.api-docs.groupId>
+    <project.api-docs.artifactId>api-docs</project.api-docs.artifactId>
   </properties>
+
+  <repositories>
+    <repository>
+      <id>admin</id>
+      <url>http://localhost:8081/repository/api-docs-storage</url>
+    </repository>
+  </repositories>
+
   <dependencies>
     <dependency>
       <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter</artifactId>
+      <artifactId>spring-boot-starter-web</artifactId>
     </dependency>
 
     <dependency>
@@ -32,10 +43,75 @@
       <artifactId>spring-boot-starter-test</artifactId>
       <scope>test</scope>
     </dependency>
+
+    <dependency>
+      <groupId>io.swagger.parser.v3</groupId>
+      <artifactId>swagger-parser</artifactId>
+      <version>2.1.12</version>
+    </dependency>
+    <dependency>
+      <groupId>org.openapitools</groupId>
+      <artifactId>jackson-databind-nullable</artifactId>
+      <version>0.2.6</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.hibernate.validator</groupId>
+      <artifactId>hibernate-validator</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-starter-openfeign</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.github.openfeign</groupId>
+      <artifactId>feign-okhttp</artifactId>
+      <version>11.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>${project.api-docs.groupId}</groupId>
+      <artifactId>${project.api-docs.artifactId}</artifactId>
+      <type>rar</type>
+<!--      <version>1.0-SNAPSHOT</version>-->
+      <version>1.0-20231009.083713-1</version>
+    </dependency>
   </dependencies>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.springframework.cloud</groupId>
+        <artifactId>spring-cloud-dependencies</artifactId>
+        <version>${spring-cloud.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
 
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>unpack</id>
+            <goals>
+              <goal>unpack-dependencies</goal>
+            </goals>
+            <phase>validate</phase>
+            <configuration>
+              <includeGroupIds>${project.api-docs.groupId}</includeGroupIds>
+              <includeArtifactIds>${project.api-docs.artifactId}</includeArtifactIds>
+              <outputDirectory>${basedir}/target/api-contracts</outputDirectory>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
@@ -47,6 +123,79 @@
             </exclude>
           </excludes>
         </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.openapitools</groupId>
+        <artifactId>openapi-generator-maven-plugin</artifactId>
+        <version>6.6.0</version>
+        <executions>
+
+          <execution>
+            <id>generate-product-service</id>
+            <goals>
+              <goal>generate</goal>
+            </goals>
+            <configuration>
+              <inputSpec>
+                ${project.basedir}/target/api-contracts/product-service.yaml
+              </inputSpec>
+              <generatorName>spring</generatorName>
+              <apiPackage>com.example.demoloadapidocs</apiPackage>
+              <modelPackage>com.example.demoloadapidocs.model</modelPackage>
+              <generateSupportingFiles>false</generateSupportingFiles>
+              <configOptions>
+                <interfaceOnly>true</interfaceOnly>
+                <delegatePattern>true</delegatePattern>
+                <useSpringBoot3>true</useSpringBoot3>
+                <!--								<useJakartaEe>true</useJakartaEe>-->
+                <hideGenerationTimestamp>true</hideGenerationTimestamp>
+                <skipDefaultInterface>true</skipDefaultInterface>
+                <dateLibrary>java8</dateLibrary>
+              </configOptions>
+              <typeMappings>
+                <typeMapping>string+date-time=ZonedDateTime</typeMapping>
+                <typeMapping>object+RateLimitCode=RateLimitCode</typeMapping>
+              </typeMappings>
+              <schemaMappings>
+                <schemaMapping>ZonedDateTime=java.time.ZonedDateTime</schemaMapping>
+                <schemaMapping>RateLimitCode=com.example.demoloadapidocs.RateLimitCode</schemaMapping>
+              </schemaMappings>
+            </configuration>
+          </execution>
+
+          <execution>
+            <id>generate-file-storage-service</id>
+            <goals>
+              <goal>generate</goal>
+            </goals>
+            <configuration>
+              <inputSpec>
+                ${project.basedir}/target/api-contracts/file-storage-service.yaml
+              </inputSpec>
+              <globalProperties>
+                <skipFormModel>false</skipFormModel>
+              </globalProperties>
+              <generatorName>spring</generatorName>
+              <library>spring-cloud</library>
+              <apiPackage>com.example.demoloadapidocs.module.fileservice.api</apiPackage>
+              <modelPackage>com.example.demoloadapidocs.module.fileservice.model</modelPackage>
+              <configOptions>
+                <useSpringBoot3>true</useSpringBoot3>
+                <hideGenerationTimestamp>true</hideGenerationTimestamp>
+                <dateLibrary>java8</dateLibrary>
+                <useTags>true</useTags>
+              </configOptions>
+              <typeMappings>
+                <typeMapping>string+date-time=ZonedDateTime</typeMapping>
+              </typeMappings>
+              <schemaMappings>
+                <schemaMapping>ZonedDateTime=java.time.ZonedDateTime</schemaMapping>
+              </schemaMappings>
+            </configuration>
+          </execution>
+
+        </executions>
       </plugin>
     </plugins>
   </build>
